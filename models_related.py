@@ -1,0 +1,342 @@
+import torch.nn as nn
+import torch
+import torch.nn.functional as F  # For MAE loss computation
+from tqdm import tqdm
+import numpy as np
+
+class BP_Model(nn.Module):
+    def __init__(self):
+        super(BP_Model, self).__init__()
+        self.conv1 = nn.Conv1d(in_channels=2, out_channels=128, kernel_size=3, padding=1, bias=True)
+        self.relu1 = nn.ReLU()
+        self.pool1 = nn.MaxPool1d(kernel_size=10, stride=2)
+
+        self.conv2 = nn.Conv1d(in_channels=128, out_channels=128, kernel_size=3, padding=1, bias=True)
+        self.relu2 = nn.ReLU()
+        self.pool2 = nn.MaxPool1d(kernel_size=10, stride=2)
+
+        self.conv3 = nn.Conv1d(in_channels=128, out_channels=128, kernel_size=3, padding=1, bias=True)
+        self.relu3 = nn.ReLU()
+        self.pool3 = nn.MaxPool1d(kernel_size=4, stride=2)
+
+        self.lstm1 = nn.LSTM(input_size=128, hidden_size=128, num_layers=1, batch_first=True, bidirectional=True)
+        self.lstm2 = nn.LSTM(input_size=256, hidden_size=128, num_layers=1, batch_first=True, bidirectional=True)
+
+        self.fc = nn.Linear(256, 1)  # Input features: 256 (128*2 from bidirectional LSTM)
+
+        # Initialize biases to zero
+        nn.init.zeros_(self.conv1.bias)
+        nn.init.zeros_(self.conv2.bias)
+        nn.init.zeros_(self.conv3.bias)
+
+    def forward(self, x):
+        # Input x shape: (batch_size, seq_length, num_channels)
+        x = x.permute(0, 2, 1)  # Reshape to (batch_size, num_channels, seq_length)
+
+        # Convolutional layers
+        x = self.conv1(x)
+        x = self.relu1(x)
+        x = self.pool1(x)
+
+        x = self.conv2(x)
+        x = self.relu2(x)
+        x = self.pool2(x)
+
+        x = self.conv3(x)
+        x = self.relu3(x)
+        x = self.pool3(x)
+
+        # Prepare for LSTM
+        x = x.permute(0, 2, 1)  # Reshape to (batch_size, seq_length, num_features)
+
+        # Bidirectional LSTM layers
+        x, _ = self.lstm1(x)
+        x, _ = self.lstm2(x)
+
+        # Take the output of the last time step
+        x = x[:, -1, :]  # Shape: (batch_size, 256)
+
+        # Output layer
+        x = self.fc(x)
+
+        return x
+    
+class BP_Model_DO(nn.Module):
+    def __init__(self):
+        super(BP_Model_DO, self).__init__()
+        self.conv1 = nn.Conv1d(in_channels=2, out_channels=128, kernel_size=3, padding=1, bias=True)
+        self.relu1 = nn.ReLU()
+        self.pool1 = nn.MaxPool1d(kernel_size=10, stride=2)
+
+        self.conv2 = nn.Conv1d(in_channels=128, out_channels=128, kernel_size=3, padding=1, bias=True)
+        self.relu2 = nn.ReLU()
+        self.pool2 = nn.MaxPool1d(kernel_size=10, stride=2)
+
+        self.conv3 = nn.Conv1d(in_channels=128, out_channels=128, kernel_size=3, padding=1, bias=True)
+        self.relu3 = nn.ReLU()
+        self.pool3 = nn.MaxPool1d(kernel_size=4, stride=2)
+
+        self.lstm1 = nn.LSTM(input_size=128, hidden_size=128, num_layers=1, batch_first=True, bidirectional=True)
+        self.lstm2 = nn.LSTM(input_size=256, hidden_size=128, num_layers=1, batch_first=True, bidirectional=True)
+
+        self.fc1 = nn.Linear(256, 128)  # Input features: 256 (128*2 from bidirectional LSTM)
+        self.fc2 = nn.Linear(128, 1)
+        self.dropout = nn.Dropout(0.5)
+
+        # nn.init.kaiming_normal_(self.conv1.weight, nonlinearity='relu')
+        # nn.init.kaiming_normal_(self.conv2.weight, nonlinearity='relu')
+        # nn.init.kaiming_normal_(self.conv3.weight, nonlinearity='relu')
+
+        # Initialize biases to zero
+        nn.init.zeros_(self.conv1.bias)
+        nn.init.zeros_(self.conv2.bias)
+        nn.init.zeros_(self.conv3.bias)
+
+    def forward(self, x):
+        # Input x shape: (batch_size, seq_length, num_channels)
+        x = x.permute(0, 2, 1)  # Reshape to (batch_size, num_channels, seq_length)
+
+        # Convolutional layers
+        x = self.conv1(x)
+        x = self.relu1(x)
+        x = self.pool1(x)
+        x = self.dropout(x)
+
+        x = self.conv2(x)
+        x = self.relu2(x)
+        x = self.pool2(x)
+        x = self.dropout(x)
+
+        # x = self.conv3(x)
+        # x = self.relu3(x)
+        # x = self.pool3(x)
+        # x = self.dropout(x)
+
+        # Prepare for LSTM
+        x = x.permute(0, 2, 1)  # Reshape to (batch_size, seq_length, num_features)
+
+        # Bidirectional LSTM layers
+        x, _ = self.lstm1(x)
+        x = self.dropout(x)
+        x, _ = self.lstm2(x)
+        x = self.dropout(x)
+
+        # Take the output of the last time step
+        x = x[:, -1, :]  # Shape: (batch_size, 256)
+
+        # Output layer
+        x = self.fc1(x)
+        x = self.fc2(x)
+        # x = self.dropout(x)
+
+        return x
+
+class BP_Model_BN(nn.Module):
+    def __init__(self):
+        super(BP_Model_BN, self).__init__()
+        self.conv1 = nn.Conv1d(in_channels=2, out_channels=128, kernel_size=3, padding=1, bias=True)
+        self.bn1 = nn.BatchNorm1d(128)
+        self.relu1 = nn.ReLU()
+        self.pool1 = nn.MaxPool1d(kernel_size=10, stride=2)
+
+        self.conv2 = nn.Conv1d(in_channels=128, out_channels=128, kernel_size=3, padding=1, bias=True)
+        self.bn2 = nn.BatchNorm1d(128)
+        self.relu2 = nn.ReLU()
+        self.pool2 = nn.MaxPool1d(kernel_size=10, stride=2)
+
+        self.conv3 = nn.Conv1d(in_channels=128, out_channels=128, kernel_size=3, padding=1, bias=True)
+        self.bn3 = nn.BatchNorm1d(128)
+        self.relu3 = nn.ReLU()
+        self.pool3 = nn.MaxPool1d(kernel_size=4, stride=2)
+
+        self.lstm1 = nn.LSTM(input_size=128, hidden_size=128, num_layers=1, batch_first=True, bidirectional=True)
+        self.lstm2 = nn.LSTM(input_size=256, hidden_size=128, num_layers=1, batch_first=True, bidirectional=True)
+
+        self.fc = nn.Linear(256, 1)  # Input features: 256 (128*2 from bidirectional LSTM)
+
+        # Initialize biases to zero
+        nn.init.zeros_(self.conv1.bias)
+        nn.init.zeros_(self.conv2.bias)
+        nn.init.zeros_(self.conv3.bias)
+
+    def forward(self, x):
+        # Input x shape: (batch_size, seq_length, num_channels)
+        x = x.permute(0, 2, 1)  # Reshape to (batch_size, num_channels, seq_length)
+
+        # Convolutional layers
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu1(x)
+        x = self.pool1(x)
+
+        x = self.conv2(x)
+        x = self.bn2(x)
+        x = self.relu2(x)
+        x = self.pool2(x)
+
+        x = self.conv3(x)
+        x = self.bn3(x)
+        x = self.relu3(x)
+        x = self.pool3(x)
+
+        # Prepare for LSTM
+        x = x.permute(0, 2, 1)  # Reshape to (batch_size, seq_length, num_features)
+
+        # Bidirectional LSTM layers
+        x, _ = self.lstm1(x)
+        x, _ = self.lstm2(x)
+
+        # Take the output of the last time step
+        x = x[:, -1, :]  # Shape: (batch_size, 256)
+
+        # Output layer
+        x = self.fc(x)
+
+        return x
+
+def train_torch_model(model, train_loader, val_loader, num_epochs, criterion, optimizer, device, bp_type, scheduler=None, early_stopper=None):
+    model.to(device)
+    train_losses = []
+    val_losses = []
+    train_mae_losses = []
+    val_mae_losses = []
+    best_val_loss = float('inf')
+
+    for epoch in range(num_epochs):
+        model.train()
+        epoch_train_loss = 0.0
+        epoch_train_mae = 0.0
+
+        with tqdm(total=len(train_loader), desc=f"Epoch {epoch+1}/{num_epochs}", unit='batch') as pbar:
+            # Training loop
+            for inputs, targets in train_loader:
+                inputs = inputs.to(device)
+                targets = targets.to(device)
+
+                optimizer.zero_grad()
+
+                outputs = model(inputs)
+                loss = criterion(outputs, targets)
+                mae_loss = F.l1_loss(outputs, targets)
+
+                loss.backward()
+                optimizer.step()
+
+                batch_size = inputs.size(0)
+                epoch_train_loss += loss.item() * batch_size
+                epoch_train_mae += mae_loss.item() * batch_size
+
+                pbar.set_postfix({'loss': loss.item(), 'mae': mae_loss.item()})
+                pbar.update(1)
+
+        epoch_train_loss /= len(train_loader.dataset)
+        epoch_train_mae /= len(train_loader.dataset)
+        train_losses.append(epoch_train_loss)
+        train_mae_losses.append(epoch_train_mae)
+
+        # Validation loop
+        model.eval()
+        epoch_val_loss = 0.0
+        epoch_val_mae = 0.0
+
+        with torch.no_grad():
+            for inputs, targets in val_loader:
+                inputs = inputs.to(device)
+                targets = targets.to(device)
+
+                outputs = model(inputs)
+                loss = criterion(outputs, targets)
+                mae_loss = F.l1_loss(outputs, targets)
+
+                batch_size = inputs.size(0)
+                epoch_val_loss += loss.item() * batch_size
+                epoch_val_mae += mae_loss.item() * batch_size
+
+        epoch_val_loss /= len(val_loader.dataset)
+        epoch_val_mae /= len(val_loader.dataset)
+        val_losses.append(epoch_val_loss)
+        val_mae_losses.append(epoch_val_mae)
+
+        # Save the best model based on validation loss
+        if epoch_val_loss < best_val_loss:
+            best_val_loss = epoch_val_loss
+            torch.save(model.state_dict(), f'model/torch_cnn_lstm_{bp_type}.pth')
+
+        # Get current learning rate from optimizer
+        current_lr = optimizer.param_groups[0]['lr']
+
+        # Print epoch information, including learning rate
+        print(f"Epoch {epoch+1}/{num_epochs} - "
+              f"Training Loss: {epoch_train_loss:.4f}, MAE: {epoch_train_mae:.4f}, "
+              f"Validation Loss: {epoch_val_loss:.4f}, MAE: {epoch_val_mae:.4f}, "
+              f"Learning Rate: {current_lr:.6f}")
+
+        # Step the scheduler if it is provided
+        if scheduler:
+            scheduler.step(epoch_val_loss)
+
+        if early_stopper and early_stopper.step(epoch_val_loss):
+            print(f"Early stopping triggered after {epoch+1} epochs.")
+            break
+
+    return train_losses, val_losses, train_mae_losses, val_mae_losses, epoch+1
+
+def evaluate_torch_model(model, test_loader, device):
+    model.eval()
+    model.to(device)
+
+    predictions = []
+    targets_list = []
+
+    with torch.no_grad():
+        for inputs, targets in test_loader:
+            inputs = inputs.to(device)
+            targets = targets.to(device)
+
+            outputs = model(inputs)
+
+            predictions.extend(outputs.cpu().numpy())
+            targets_list.extend(targets.cpu().numpy())
+
+    return np.array(predictions), np.array(targets_list)
+
+class EarlyStopping:
+    def __init__(self, patience=10, min_delta=0.0):
+        """
+        Args:
+            patience (int): How many epochs to wait after the last improvement.
+            min_delta (float): Minimum change in the monitored value to qualify as an improvement.
+        """
+        self.patience = patience
+        self.min_delta = min_delta
+        self.best_loss = None
+        self.counter = 0
+
+    def step(self, val_loss):
+        """
+        Checks if validation loss has improved, and whether training should stop.
+
+        Args:
+            val_loss (float): Current validation loss.
+
+        Returns:
+            bool: True if training should stop, otherwise False.
+        """
+        if self.best_loss is None:
+            # Initialize best_loss with the first validation loss
+            self.best_loss = val_loss
+            return False
+
+        # Check if validation loss has improved by at least `min_delta`
+        if val_loss < self.best_loss - self.min_delta:
+            # Improvement has been seen
+            self.best_loss = val_loss
+            self.counter = 0
+        else:
+            # No improvement
+            self.counter += 1
+            if self.counter >= self.patience:
+                return True
+
+        return False
+
