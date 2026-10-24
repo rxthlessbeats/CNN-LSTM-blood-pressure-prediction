@@ -20,7 +20,7 @@ src/cnn_lstm_bp/     import package
   cli.py             cnn-lstm-bp command
   data.py            prepare, build, load
   processing.py      window quality filter
-  models.py          BP_Model, BP_Model_DO, BP_Model_BN
+  models.py          BP_Model and BP_Model_DO
   evaluation.py      MAE and BHS grade
 notebooks/
 tests/

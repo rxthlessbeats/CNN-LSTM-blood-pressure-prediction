@@ -1,5 +1,3 @@
-"""MIMIC record fetch, 5-second windows, and subject splits."""
-
 import pickle
 import re
 import sys
@@ -147,7 +145,7 @@ def _windows_from_row(row, database_name=DATABASE, split_sec=5, samples=SAMPLES)
     return windows
 
 
-def fetch_records(database_name, limit=0):
+def fetch_records(database_name):
     import wfdb
 
     try:
@@ -162,8 +160,6 @@ def fetch_records(database_name, limit=0):
         studies = wfdb.get_record_list(f"{database_name}/{subject}")
         for study in studies:
             records.append(f"{subject}{study}".replace("\\", "/"))
-            if limit and len(records) >= limit:
-                return records
     return records
 
 
@@ -182,7 +178,7 @@ def prepare(
     if fetch or not index.exists():
         if not fetch and not index.exists():
             raise SystemExit(f"missing {index}. Run: cnn-lstm-bp prepare --fetch")
-        records = fetch_records(database_name, limit=0)
+        records = fetch_records(database_name)
         index.parent.mkdir(parents=True, exist_ok=True)
         with open(index, "wb") as handle:
             pickle.dump(records, handle)

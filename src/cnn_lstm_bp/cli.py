@@ -1,13 +1,3 @@
-"""ECG + PPG to blood pressure.
-
-uv run cnn-lstm-bp prepare --fetch
-uv run cnn-lstm-bp build
-uv run cnn-lstm-bp train
-uv run cnn-lstm-bp evaluate
-uv run cnn-lstm-bp predict --target sbp --window window.npy
-uv run cnn-lstm-bp demo
-"""
-
 import argparse
 import json
 import sys
@@ -70,13 +60,9 @@ def _device():
 
 
 def _models():
-    from cnn_lstm_bp.models import BP_Model, BP_Model_BN, BP_Model_DO
+    from cnn_lstm_bp.models import BP_Model, BP_Model_DO
 
-    return {
-        "BP_Model": BP_Model,
-        "BP_Model_DO": BP_Model_DO,
-        "BP_Model_BN": BP_Model_BN,
-    }
+    return {"BP_Model": BP_Model, "BP_Model_DO": BP_Model_DO}
 
 
 def _set_seed(seed):
